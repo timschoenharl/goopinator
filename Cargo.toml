@@ -1,0 +1,21 @@
+[package]
+name = "goopinator"
+version = "0.1.0"
+edition = "2021"
+authors = ["Timothy S"]
+description = "A Vulkan overlay for ARC Raiders with item scanning and tactical information"
+license = "CC-BY-NC-4.0"
+repository = "https://github.com/timothys/goopinator"
+
+[lib]
+name = "goopinator"
+crate-type = ["cdylib"]
+
+[dependencies]
+ash = "0.38"
+libc = "0.2"
+
+[profile.release]
+opt-level = 3
+lto = true
+strip = true
