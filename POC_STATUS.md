@@ -1,196 +1,197 @@
-# Proof of Concept Status
+# POC Status - Goopinator
 
-## ✅ What's Working
+**Current Phase**: 0.5 - Minimal Viable Layer
 
-### 1. Vulkan Layer Infrastructure
-- ✅ Rust project successfully compiled as a cdylib (shared library)
-- ✅ Vulkan layer manifest properly configured
-- ✅ Layer is recognized by the Vulkan loader
+## ✅ Completed
+
+### 1. Project Setup
+- ✅ Rust project configured as cdylib (shared library)
+- ✅ Git repository initialized
+- ✅ GitHub repository created: `timschoenharl/goopinator`
+- ✅ CC BY-NC 4.0 license applied
+- ✅ Project renamed from "ARC Overlay" to "Goopinator"
+
+### 2. Vulkan Layer Infrastructure
+- ✅ Layer manifest (`goopinator_layer.json`) configured as GLOBAL implicit layer
 - ✅ Installation/uninstallation scripts working
+- ✅ Layer successfully loaded by Vulkan loader
+- ✅ Disable mechanism via `DISABLE_GOOPINATOR=1` environment variable
 
-### 2. Function Interception
-- ✅ `vkGetInstanceProcAddr` - Entry point for instance-level functions
-- ✅ `vkGetDeviceProcAddr` - Entry point for device-level functions
-- ✅ `vkCreateInstance` - Called when Vulkan instance is created
-- ✅ `vkDestroyInstance` - Called when Vulkan instance is destroyed
-- ✅ `vkQueuePresentKHR` - Ready to intercept (called every frame)
+### 3. Basic Function Interception
+- ✅ `vkGetInstanceProcAddr` - Implemented and working
+- ✅ `vkGetDeviceProcAddr` - Implemented and working
+- ✅ `vkEnumerateInstanceLayerProperties` - Implemented and working
+- ✅ Logging system demonstrates layer is being queried
 
-### 3. Testing
-- ✅ Layer loads successfully with `vkcube` test application
-- ✅ Logging to stderr confirms function interception
-- ✅ Layer can be enabled/disabled via environment variable
+### 4. Testing & Build System
+- ✅ **Unit tests**: 5/5 passing
+  - `layer_state_initializes`
+  - `layer_state_can_be_disabled`
+  - `layer_state_tracks_frames`
+  - `global_layer_state_starts_empty`
+  - `layer_state_can_be_set_globally`
+- ✅ Cargo build system configured for release builds
+- ✅ Compiled library: `libgoopinator.so` (~290KB)
 
-## 🚧 Current Limitations
+### 5. Documentation
+- ✅ README.md with project overview
+- ✅ QUICKSTART.md for users
+- ✅ POC_STATUS.md (this file)
+- ✅ Installation instructions
 
-### Layer Chaining Not Implemented
-The current POC returns dummy values instead of properly chaining to the next layer or driver. This means:
-- Simple test apps like `vkcube` might work
-- Complex games like ARC Raiders will likely crash
-- We're not calling the actual Vulkan implementation
+## 🚧 Known Limitations
 
-**Why this matters**: Vulkan layers are designed to be a chain. Each layer should:
-1. Do its work (logging, rendering overlay, etc.)
-2. Call the next layer in the chain
-3. Return the result from the chain
+### Critical: Layer Chaining Not Implemented
 
-**Current behavior**:
-```rust
-unsafe fn queue_present_chain(...) -> vk::Result {
-    // TODO: Actually call the next layer
-    vk::Result::SUCCESS  // Just returning success
-}
-```
+**Status**: Partially implemented, needs completion for production use
 
-**Needed behavior**:
-```rust
-unsafe fn queue_present_chain(...) -> vk::Result {
-    // 1. Get the function pointer for the next layer
-    // 2. Call it with the same parameters
-    // 3. Return its result
-}
-```
+The current implementation uses simplified chaining:
+- Returns `None` for most function queries, letting the Vulkan loader handle chaining
+- Works for basic layer detection but **not suitable for production**
+- **Does NOT intercept frame rendering** (`vkQueuePresentKHR`) yet
+
+**Why this matters**:
+- Proper Vulkan layers must parse the pNext chain in `vkCreateInstance`
+- Must store and use dispatch tables for calling next layer
+- Without this, we can't safely intercept frame presentation
+
+**Complexity discovered**:
+- Requires manual pNext chain parsing with C-style unions
+- Type handling between Rust and Vulkan C structures is non-trivial
+- Consider using `vulkan-layer-rs` or similar framework for Phase 1
+
+### Other Limitations
+1. **No Frame Interception**: `vkQueuePresentKHR` not hooked (requires proper chaining first)
+2. **No Overlay Rendering**: No graphics pipeline or ImGui integration
+3. **No Input Handling**: No keyboard/mouse input detection
+4. **Not Tested with Games**: Only basic Vulkan loader verification done
 
 ## 📊 Test Results
 
-### vkcube Test
+### Layer Loading
 ```bash
-$ timeout 5 vkcube 2>&1 | head -30
-Selected WSI platform: wayland
-[ARC Overlay] vkGetInstanceProcAddr called for: "vkCreateInstance"
-[ARC Overlay] vkCreateInstance called - Layer is active!
-[ARC Overlay] vkGetInstanceProcAddr called for: "vkDestroyInstance"
-...
+$ vulkaninfo --summary 2>&1 | grep Goopinator
+[Goopinator] Layer queried for: "vkCreateInstance"
 ```
+**Result**: ✅ Layer successfully detected by Vulkan loader
 
-**Result**: ✅ Layer successfully intercepts Vulkan calls
-
-### File Locations
-- **Source**: `/home/timothys/Projects/ARC_Overlay/src/lib.rs`
-- **Compiled library**: `/home/timothys/Projects/ARC_Overlay/target/release/libarc_overlay.so` (290KB)
-- **Manifest**: `~/.local/share/vulkan/implicit_layer.d/arc_overlay_layer.json`
-
-## 🎯 Next Steps
-
-### Phase 1: Complete Basic Layer (Recommended First)
-1. **Implement proper layer chaining**
-   - Store function pointers from the dispatch table
-   - Properly call the next layer for all intercepted functions
-   - This is CRITICAL before testing with ARC Raiders
-
-2. **Add frame counting**
-   - Count frames in `vkQueuePresentKHR`
-   - Only log every Nth frame to reduce spam
-
-### Phase 2: Add Simple Overlay Rendering
-1. **Integrate Dear ImGui**
-   - Add `imgui` and `imgui-rs` crates
-   - Create ImGui context in `vkCreateInstance`
-   - Render simple text overlay in `vkQueuePresentKHR`
-
-2. **Test with simple games first**
-   - Test with vkcube
-   - Test with other simple Vulkan games
-   - Only then test with ARC Raiders
-
-### Phase 3: Add Overlay Features
-1. **Screenshot system**
-   - Capture screen on hotkey
-   - OCR for item detection
-
-2. **Item database**
-   - SQLite database for item info
-   - API integration with MetaForge/ARCTracker
-
-3. **UI elements**
-   - Item scanner overlay
-   - Event timers
-   - Interactive minimap
-
-## 🛡️ Safety Considerations
-
-### Anti-Cheat Compatibility
-- ✅ No memory reading
-- ✅ No file modification
-- ✅ Pure rendering overlay
-- ⚠️ EAC might still flag Vulkan layers as suspicious
-- 💡 Recommendation: Test in offline mode first
-
-### Performance
-- Current library size: 290KB (small, good)
-- Minimal overhead (only logging currently)
-- ImGui will add ~1-2MB but is very efficient
-
-## 📝 How to Test
-
-### Enable the overlay:
+### Unit Tests
 ```bash
+$ cargo test
+running 5 tests
+test tests::global_layer_state_starts_empty ... ok
+test tests::layer_state_can_be_disabled ... ok
+test tests::layer_state_can_be_set_globally ... ok
+test tests::layer_state_initializes ... ok
+test tests::layer_state_tracks_frames ... ok
+
+test result: ok. 5 passed; 0 failed; 0 ignored; 0 measured
+```
+**Result**: ✅ All tests passing
+
+### vkcube Test
+**Status**: Not yet tested (pending proper layer chaining)
+
+### ARC Raiders Test
+**Status**: Not yet tested (pending proper layer chaining)
+
+## 🎯 Phase 1 Goals (Next)
+
+### Priority 1: Proper Layer Chaining (Critical)
+1. Implement pNext chain parsing for `vkCreateInstance`
+   - Parse `VK_STRUCTURE_TYPE_LOADER_INSTANCE_CREATE_INFO`
+   - Extract `VkLayerInstanceLink` structure
+   - Store next layer's `vkGetInstanceProcAddr`
+2. Build dispatch tables for instances and devices
+3. Chain all intercepted functions to next layer
+4. **Consider using a Vulkan layer framework** to simplify this
+
+### Priority 2: Frame Hook Verification
+1. Intercept `vkQueuePresentKHR` with proper chaining
+2. Verify frame counting works without crashes
+3. Log frame count every 300 frames
+
+### Priority 3: Compatibility Testing
+1. Test with vkcube
+2. Test with simple Vulkan games
+3. Test with ARC Raiders (passive mode - no rendering yet)
+4. Verify no crashes or performance issues
+
+## 📂 File Locations
+
+- **Source code**: `/home/timothys/Projects/ARC_Overlay/src/lib.rs`
+- **Compiled library**: `/home/timothys/Projects/ARC_Overlay/target/release/libgoopinator.so`
+- **Installed manifest**: `~/.local/share/vulkan/implicit_layer.d/goopinator_layer.json`
+- **GitHub**: `https://github.com/timschoenharl/goopinator`
+
+## 📝 How to Use
+
+### Build and Install
+```bash
+cargo build --release
 ./install.sh
 ```
 
-### Test with vkcube:
+### Test Layer Loading
 ```bash
-vkcube  # Layer loads automatically
+vulkaninfo --summary 2>&1 | grep Goopinator
 ```
 
-### Disable the overlay:
+### Disable Temporarily
 ```bash
-export DISABLE_ARC_OVERLAY=1
-vkcube  # Layer won't load
+export DISABLE_GOOPINATOR=1
 ```
 
-### Uninstall:
+### Uninstall
 ```bash
 ./uninstall.sh
 ```
 
-## 🔧 Development Notes
-
-### Building
-```bash
-cargo build --release
-```
-
-### Watch for changes during development
-```bash
-cargo watch -x 'build --release'
-```
-
-### Reduce logging spam
-In the future, replace `eprintln!` with a proper logging framework that can be configured at runtime.
-
 ## 🎓 Lessons Learned
 
-1. **Rust + Vulkan works great**
-   - `ash` crate provides excellent Vulkan bindings
-   - Type safety helps avoid common C mistakes
-   - Compilation is fast (~1.5 seconds)
+1. **Vulkan Layer Chaining is Complex**
+   - Not a simple "intercept and call next" pattern
+   - Requires deep understanding of Vulkan loader architecture
+   - pNext chain parsing with C unions is error-prone in Rust
+   - **Recommendation**: Use existing framework or study MangoHud source
 
-2. **Vulkan layers are powerful but complex**
-   - Must implement proper chaining
-   - Must handle all Vulkan API versions
-   - Need to store dispatch tables
+2. **Rust + Vulkan = Great Developer Experience**
+   - `ash` crate provides excellent type-safe bindings
+   - Cargo makes builds fast (~1.5 seconds)
+   - Pattern matching great for function dispatch
+   - But: FFI with complex C structures needs care
 
-3. **Linux gaming overlay ecosystem**
-   - MangoHud is the gold standard
-   - Most overlays use implicit layers
-   - Steam has its own overlay infrastructure
+3. **TDD Approach Works Well**
+   - Unit tests caught issues early
+   - Tests run fast (<1 second)
+   - Easy to refactor with test safety net
 
-## 📚 Resources Used
+## 📚 Resources
 
-- [Vulkan Layer Guide - RenderDoc](https://renderdoc.org/vulkan-layer-guide.html)
-- [ash - Rust Vulkan bindings](https://docs.rs/ash/latest/ash/)
-- [MangoHud source code](https://github.com/flightlessmango/MangoHud) - Reference implementation
-- [Vulkan Loader Architecture](https://chromium.googlesource.com/external/github.com/KhronosGroup/Vulkan-Loader/+/HEAD/loader/LoaderAndLayerInterface.md)
+- [Vulkan Loader and Layer Interface](https://chromium.googlesource.com/external/github.com/KhronosGroup/Vulkan-Loader/+/HEAD/loader/LoaderAndLayerInterface.md)
+- [MangoHud Source](https://github.com/flightlessmango/MangoHud) - Production layer example
+- [ash Documentation](https://docs.rs/ash/latest/ash/)
+- [VK_LAYER_KHRONOS_validation source](https://github.com/KhronosGroup/Vulkan-ValidationLayers) - Official reference
 
 ## 🏆 Success Criteria
 
+**Phase 0.5 (Current)**
 - [x] Compile Rust Vulkan layer
 - [x] Install layer to correct location
 - [x] Layer recognized by Vulkan loader
-- [x] Intercept Vulkan function calls
+- [x] Basic function interception working
+- [x] Unit tests passing
+- [x] Git + GitHub setup
+- [x] Documentation written
+
+**Phase 1 (Next)**
 - [ ] Proper layer chaining implemented
+- [ ] Intercept vkQueuePresentKHR with chaining
+- [ ] Tested with vkcube without crashes
 - [ ] Tested with ARC Raiders without crashes
+
+**Phase 2 (Future)**
 - [ ] Render simple overlay (text)
 - [ ] Hotkey toggle overlay on/off
 - [ ] Screenshot + OCR item detection
-- [ ] Display item information
+- [ ] Display item information from database
