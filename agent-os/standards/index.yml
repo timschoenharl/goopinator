@@ -1,0 +1,21 @@
+# Agent OS Standards Index
+
+global:
+  workflow:
+    description: TDD workflow, trunk-based development, commit message style, test policy
+
+rust:
+  logging:
+    description: eprintln! logging pattern, structured format [Project][Component], selective logging in hot paths
+  testing:
+    description: Test colocation with #[cfg(test)], descriptive snake_case naming, global state lock/cleanup pattern
+
+vulkan:
+  chaining:
+    description: Layer chaining patterns - POC (return None) vs Production (dispatch tables), selective interception
+  ffi-safety:
+    description: Pointer null checks, CStr string handling, function pointer casts, extern C ABI patterns
+  installation:
+    description: User-local layer install, dev vs production modes, manifest naming, environment variable disable
+  state-management:
+    description: static Mutex<Option<T>> pattern, lazy initialization, Default trait, state lifecycle
